@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="colorPrimary">#0D47A1</color>
+    <color name="colorPrimaryDark">#002171</color>
+    <color name="colorPrimaryVariant">#1565C0</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorSecondary">#00B0FF</color>
+    <color name="colorAccent">#00E5FF</color>
+
+    <!-- Backgrounds -->
+    <color name="bgApp">#070D1A</color>
+    <color name="bgCard">#0E1829</color>
+    <color name="bgCardElevated">#1A2540</color>
+    <color name="bgToolbar">#0A1628</color>
+    <color name="bgInput">#131F35</color>
+
+    <!-- Status -->
+    <color name="colorInStock">#00E676</color>
+    <color name="colorInStockBg">#0A2E1A</color>
+    <color name="colorOutOfStock">#FF1744</color>
+    <color name="colorOutOfStockBg">#2E0A0A</color>
+    <color name="colorChecking">#546E7A</color>
+    <color name="colorError">#FF9100</color>
+    <color name="colorErrorBg">#2E1A00</color>
+
+    <!-- Text -->
+    <color name="textPrimary">#FFFFFF</color>
+    <color name="textSecondary">#90A4AE</color>
+    <color name="textHint">#546E7A</color>
+    <color name="textAccent">#00E5FF</color>
+
+    <!-- Alarm -->
+    <color name="alarmBg">#050C1A</color>
+    <color name="alarmPulse">#00E676</color>
+    <color name="alarmDismiss">#FF1744</color>
+    <color name="alarmBuy">#00E676</color>
+
+    <!-- Dots -->
+    <color name="dotGreen">#00E676</color>
+    <color name="dotRed">#FF1744</color>
+    <color name="dotOrange">#FF9100</color>
+    <color name="dotGrey">#546E7A</color>
+
+    <!-- Divider -->
+    <color name="divider">#1A2540</color>
+    <color name="ripple">#1A00B0FF</color>
+
+    <!-- Trial banner -->
+    <color name="trialBg">#1A0D47A1</color>
+    <color name="trialText">#64B5F6</color>
+</resources>
