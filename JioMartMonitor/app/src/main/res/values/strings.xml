@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JioMart Monitor</string>
+    <string name="app_desc">Stock Tracker by Dr. Dev || Dr. Hamza</string>
+
+    <!-- Main -->
+    <string name="last_fetched">Fetching…</string>
+    <string name="refresh">Refresh</string>
+    <string name="add_product">Add Product</string>
+    <string name="no_products">No products tracked yet.
+Tap + to add a product.</string>
+
+    <!-- Add Product -->
+    <string name="product_name_hint">Product Name</string>
+    <string name="product_url_hint">JioMart URL (https://…)</string>
+    <string name="latitude_hint">Latitude (e.g. 29.3108)</string>
+    <string name="longitude_hint">Longitude (e.g. 76.3472)</string>
+    <string name="location_name_hint">Location Name (e.g. Near My Home)</string>
+    <string name="save">Save Product</string>
+    <string name="select_emoji">Select Emoji</string>
+
+    <!-- Alarm -->
+    <string name="in_stock_title">🚨 IN STOCK!</string>
+    <string name="dismiss">Dismiss Alarm</string>
+    <string name="buy_now">🛒 Buy Now on JioMart</string>
+
+    <!-- Developer -->
+    <string name="developer_name">Dr. Dev || Dr. Hamza</string>
+    <string name="developer_handle">@drdevhacks</string>
+    <string name="developer_url">https://t.me/drdevhacks</string>
+
+    <!-- Expiry -->
+    <string name="trial_expired_title">⏰ Trial Expired</string>
+    <string name="trial_expired_msg">Your 7-day trial has expired.
+
+Contact the developer to purchase a license.
+
+@drdevhacks</string>
+    <string name="contact_developer">Contact Developer</string>
+</resources>
