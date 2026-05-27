@@ -29,8 +29,8 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
         void onEdit(Product product);
     }
 
-    private final List<Product>          products;
-    private final Context                ctx;
+    private final List<Product>           products;
+    private final Context                 ctx;
     private       OnProductActionListener listener;
 
     public ProductAdapter(Context ctx, List<Product> products) {
@@ -51,33 +51,58 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder h, int position) {
-        Product p      = products.get(position);
-        StockResult r  = ProductStorage.getResult(ctx, p.getId());
+        Product p     = products.get(position);
+        StockResult r = ProductStorage.getResult(ctx, p.getId());
 
         h.tvEmoji.setText(p.getEmoji());
         h.tvName.setText(p.getName());
         h.tvLocation.setText("📍 " + p.getLocationName());
         h.tvStores.setText("🏪 Stores: " + p.getStoreIdsString());
 
+        // Reset name and link visibility before re-binding
+        resetNameStyle(h);
+
         if (r == null) {
             setStatus(h, "checking");
             h.tvQty.setText("—");
             h.tvPrice.setText("—");
             h.btnBuy.setVisibility(View.GONE);
+
         } else if (r.isError()) {
             setStatus(h, "error");
             h.tvQty.setText("Error");
             h.tvPrice.setText(r.getErrorMsg().length() > 30
                 ? r.getErrorMsg().substring(0, 30) + "…" : r.getErrorMsg());
             h.btnBuy.setVisibility(View.GONE);
+
         } else if (r.isAvailable()) {
             setStatus(h, "in_stock");
             h.tvQty.setText("📦 " + r.getTotalQuantity() + " units");
             h.tvPrice.setText("💰 " + r.getPrice());
             h.btnBuy.setVisibility(View.VISIBLE);
-            h.btnBuy.setOnClickListener(v -> {
-                ctx.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(p.getUrl())));
-            });
+
+            // ── Enhanced tappable green name → opens JioMart ─────────────────
+            h.tvName.setTextColor(Color.parseColor("#66BB6A"));
+            h.tvName.setClickable(true);
+            h.tvName.setOnClickListener(v ->
+                ctx.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(p.getUrl()))));
+
+            // Show the ↗ arrow icon next to name
+            h.tvJioMartIcon.setVisibility(View.VISIBLE);
+            h.tvJioMartIcon.setClickable(true);
+            h.tvJioMartIcon.setOnClickListener(v ->
+                ctx.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(p.getUrl()))));
+
+            // Show the "Open in JioMart →" chip below the name
+            h.tvOpenJiomart.setVisibility(View.VISIBLE);
+            h.tvOpenJiomart.setClickable(true);
+            h.tvOpenJiomart.setOnClickListener(v ->
+                ctx.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(p.getUrl()))));
+
+            // Buy Now also opens JioMart
+            h.btnBuy.setOnClickListener(v ->
+                ctx.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(p.getUrl()))));
+
         } else {
             setStatus(h, "out_of_stock");
             h.tvQty.setText("0 units");
@@ -94,7 +119,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
             h.tvChecked.setText("Not checked yet");
         }
 
-        // Delete (user-added only)
+        // Delete / Edit (user-added products only)
         if (!p.isDefault()) {
             h.btnDelete.setVisibility(View.VISIBLE);
             h.btnDelete.setOnClickListener(v -> {
@@ -108,6 +133,15 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
             h.btnDelete.setVisibility(View.GONE);
             h.btnEdit.setVisibility(View.GONE);
         }
+    }
+
+    /** Reset tvName to default (white, not clickable, hide JioMart link elements). */
+    private void resetNameStyle(@NonNull ViewHolder h) {
+        h.tvName.setTextColor(Color.parseColor("#FFFFFF"));
+        h.tvName.setClickable(false);
+        h.tvName.setOnClickListener(null);
+        h.tvJioMartIcon.setVisibility(View.GONE);
+        h.tvOpenJiomart.setVisibility(View.GONE);
     }
 
     private void setStatus(@NonNull ViewHolder h, String status) {
@@ -143,25 +177,28 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         CardView card;
-        TextView tvEmoji, tvName, tvLocation, tvStores, tvStatus, tvQty, tvPrice, tvChecked;
+        TextView tvEmoji, tvName, tvLocation, tvStores, tvStatus,
+                 tvQty, tvPrice, tvChecked, tvJioMartIcon, tvOpenJiomart;
         View     statusDot;
         Button   btnBuy, btnDelete, btnEdit;
 
         ViewHolder(View v) {
             super(v);
-            card      = v.findViewById(R.id.card);
-            tvEmoji   = v.findViewById(R.id.tvEmoji);
-            tvName    = v.findViewById(R.id.tvName);
-            tvLocation= v.findViewById(R.id.tvLocation);
-            tvStores  = v.findViewById(R.id.tvStores);
-            tvStatus  = v.findViewById(R.id.tvStatus);
-            tvQty     = v.findViewById(R.id.tvQty);
-            tvPrice   = v.findViewById(R.id.tvPrice);
-            tvChecked = v.findViewById(R.id.tvChecked);
-            statusDot = v.findViewById(R.id.statusDot);
-            btnBuy    = v.findViewById(R.id.btnBuy);
-            btnDelete = v.findViewById(R.id.btnDelete);
-            btnEdit   = v.findViewById(R.id.btnEdit);
+            card           = v.findViewById(R.id.card);
+            tvEmoji        = v.findViewById(R.id.tvEmoji);
+            tvName         = v.findViewById(R.id.tvName);
+            tvLocation     = v.findViewById(R.id.tvLocation);
+            tvStores       = v.findViewById(R.id.tvStores);
+            tvStatus       = v.findViewById(R.id.tvStatus);
+            tvQty          = v.findViewById(R.id.tvQty);
+            tvPrice        = v.findViewById(R.id.tvPrice);
+            tvChecked      = v.findViewById(R.id.tvChecked);
+            tvJioMartIcon  = v.findViewById(R.id.tvJioMartIcon);
+            tvOpenJiomart  = v.findViewById(R.id.tvOpenJiomart);
+            statusDot      = v.findViewById(R.id.statusDot);
+            btnBuy         = v.findViewById(R.id.btnBuy);
+            btnDelete      = v.findViewById(R.id.btnDelete);
+            btnEdit        = v.findViewById(R.id.btnEdit);
         }
     }
 }
