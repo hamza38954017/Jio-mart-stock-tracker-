@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- White glow ring -->
+    <path
+        android:fillColor="#20FFFFFF"
+        android:pathData="M54,18 A36,36 0 1,0 54,90 A36,36 0 1,0 54,18 Z"/>
+
+    <!-- Shopping cart body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,34 L38,34 L43,60 L69,60 L74,42 L40,42 L38,34 Z"/>
+
+    <!-- Cart wheels -->
+    <circle
+        android:fillColor="#FFFFFF"
+        android:cx="46"
+        android:cy="66"
+        android:r="4"/>
+    <circle
+        android:fillColor="#FFFFFF"
+        android:cx="64"
+        android:cy="66"
+        android:r="4"/>
+
+    <!-- Checkmark in cart -->
+    <path
+        android:fillColor="#00E676"
+        android:strokeColor="#00E676"
+        android:strokeWidth="2"
+        android:pathData="M47,48 L52,54 L63,44"/>
+</vector>
