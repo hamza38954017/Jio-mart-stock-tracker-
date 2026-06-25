@@ -2,6 +2,7 @@ package com.drdevhacks.jiomartmonitor;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -17,6 +18,8 @@ import android.provider.Settings;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.Window;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
@@ -30,6 +33,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.drdevhacks.jiomartmonitor.adapter.ProductAdapter;
 import com.drdevhacks.jiomartmonitor.model.Product;
@@ -48,17 +52,17 @@ public class MainActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private TextView           tvLastChecked;
     private TextView           tvDaysLeft;
+    private LinearLayout       emptyState;
     private List<Product>      products;
-    private static final int   REQ_NOTIF   = 100;
-    private static final int   REQ_ADD     = 200;
+    private static final int   REQ_NOTIF          = 100;
+    private static final int   REQ_ADD            = 200;
+    private static final int   REQ_WRITE_SETTINGS = 400;
 
-    // Guards to prevent multiple simultaneous dialogs
     private boolean batteryDialogShowing = false;
     private boolean notifDialogShowing   = false;
 
-    // Timeout to stop spinner if no broadcast arrives within 30 s
-    private final Handler refreshTimeoutHandler = new Handler(Looper.getMainLooper());
-    private final Runnable stopRefreshRunnable  = () -> swipeRefresh.setRefreshing(false);
+    private final Handler  refreshTimeoutHandler = new Handler(Looper.getMainLooper());
+    private final Runnable stopRefreshRunnable   = () -> swipeRefresh.setRefreshing(false);
 
     private final BroadcastReceiver stockReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context ctx, Intent intent) {
@@ -76,14 +80,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         EdgeToEdge.enable(this);
 
+        // Request WRITE_SETTINGS early so trial start persists across reinstalls
+        requestWriteSettingsIfNeeded();
+
         ExpiryManager.init(this);
-        if (ExpiryManager.isExpired(this)) {
-            showExpiredDialog();
-            return;
-        }
+        if (ExpiryManager.isExpired(this)) { showExpiredDialog(); return; }
 
         setContentView(R.layout.activity_main);
 
@@ -106,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
         tvDaysLeft    = findViewById(R.id.tvDaysLeft);
         swipeRefresh  = findViewById(R.id.swipeRefresh);
         recyclerView  = findViewById(R.id.recyclerView);
+        emptyState    = findViewById(R.id.emptyState);
 
         long days = ExpiryManager.getDaysRemaining(this);
         tvDaysLeft.setText(days > 1 ? "Trial: " + days + " days left" : "⚠️ Trial expires today!");
@@ -134,11 +138,28 @@ public class MainActivity extends AppCompatActivity {
         updateUI();
     }
 
+    // ── WRITE_SETTINGS permission (anti-reinstall trial lock) ─────────────────
+
+    private void requestWriteSettingsIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                && !Settings.System.canWrite(this)) {
+            new AlertDialog.Builder(this)
+                .setTitle("🔐 One-Time Setup")
+                .setMessage("To prevent trial abuse, the app needs to save a small amount of data in system settings.\n\nThis is a one-time step — it only records your trial start date so it survives reinstallation. No system settings are changed.\n\nTap Allow → toggle ON, then go back.")
+                .setCancelable(false)
+                .setPositiveButton("Allow", (d, w) -> {
+                    Intent i = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
+                    i.setData(Uri.parse("package:" + getPackageName()));
+                    startActivityForResult(i, REQ_WRITE_SETTINGS);
+                })
+                .setNegativeButton("Skip", null)
+                .show();
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-
-        // Always check permissions on every resume — keep asking until granted
         checkAndRequestNotifPermission();
         checkAndRequestBatteryOptimization();
 
@@ -166,7 +187,10 @@ public class MainActivity extends AppCompatActivity {
             products.clear();
             products.addAll(ProductStorage.getAll(this));
             adapter.notifyDataSetChanged();
+            updateEmptyState();
             Toast.makeText(this, "Product saved!", Toast.LENGTH_SHORT).show();
+        } else if (req == REQ_WRITE_SETTINGS) {
+            ExpiryManager.init(this);  // now that permission may be granted, re-init
         }
     }
 
@@ -187,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    // ── Permission: Notification ──────────────────────────────────────────────
+    // ── Notification permission ───────────────────────────────────────────────
 
     private void checkAndRequestNotifPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -211,26 +235,20 @@ public class MainActivity extends AppCompatActivity {
                                            @NonNull int[] grants) {
         super.onRequestPermissionsResult(req, perms, grants);
         if (req == REQ_NOTIF) {
-            boolean granted = grants.length > 0
-                && grants[0] == PackageManager.PERMISSION_GRANTED;
+            boolean granted = grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED;
             if (!granted) {
                 notifDialogShowing = true;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                         && ActivityCompat.shouldShowRequestPermissionRationale(
                                this, Manifest.permission.POST_NOTIFICATIONS)) {
-                    // Show rationale and ask again
                     new AlertDialog.Builder(this)
                         .setTitle("🔔 Notification Permission Required")
                         .setMessage("Notifications are required to alert you when a product comes back in stock.\n\nWithout this, you will miss restock alerts!")
                         .setCancelable(false)
-                        .setPositiveButton("Allow", (d, w) -> {
-                            notifDialogShowing = false;
-                            requestNotifPermission();
-                        })
+                        .setPositiveButton("Allow", (d, w) -> { notifDialogShowing = false; requestNotifPermission(); })
                         .setNegativeButton("Ask Later", (d, w) -> notifDialogShowing = false)
                         .show();
                 } else {
-                    // Permanently denied → send to app settings
                     new AlertDialog.Builder(this)
                         .setTitle("🔔 Notification Permission Required")
                         .setMessage("Notification permission is permanently denied.\n\nPlease open App Settings → Notifications and enable it to receive stock alerts.")
@@ -248,7 +266,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ── Permission: Battery Optimization ─────────────────────────────────────
+    // ── Battery optimization ──────────────────────────────────────────────────
 
     private void checkAndRequestBatteryOptimization() {
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
@@ -267,14 +285,11 @@ public class MainActivity extends AppCompatActivity {
             .setPositiveButton("Allow", (d, w) -> {
                 batteryDialogShowing = false;
                 try {
-                    Intent i = new Intent(
-                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                     i.setData(Uri.parse("package:" + getPackageName()));
                     startActivity(i);
                 } catch (Exception ex) {
-                    Intent i = new Intent(
-                        Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                    startActivity(i);
+                    startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
                 }
             })
             .setNegativeButton("Ask Me Later", (d, w) -> batteryDialogShowing = false)
@@ -287,6 +302,7 @@ public class MainActivity extends AppCompatActivity {
         products.clear();
         products.addAll(ProductStorage.getAll(this));
         adapter.notifyDataSetChanged();
+        updateEmptyState();
         long ts = ProductStorage.getLastCheckedAt(this);
         if (ts > 0) {
             String t = new SimpleDateFormat("dd MMM  hh:mm:ss a", Locale.getDefault())
@@ -297,16 +313,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void updateEmptyState() {
+        if (emptyState == null) return;
+        boolean isEmpty = products.isEmpty();
+        emptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
     private void triggerManualRefresh() {
         swipeRefresh.setRefreshing(true);
-        // Schedule a 30 s safety timeout so the spinner never gets stuck
         refreshTimeoutHandler.removeCallbacks(stopRefreshRunnable);
         refreshTimeoutHandler.postDelayed(stopRefreshRunnable, 30_000);
-
         Intent svc = new Intent(this, StockMonitorService.class);
         svc.setAction(StockMonitorService.ACTION_MANUAL_CHECK);
-        // Start the service if it isn't running yet; if it is, ACTION_MANUAL_CHECK
-        // tells onStartCommand to run an immediate check without stopping/restarting.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             startForegroundService(svc);
         else
@@ -330,6 +349,7 @@ public class MainActivity extends AppCompatActivity {
                 products.clear();
                 products.addAll(ProductStorage.getAll(this));
                 adapter.notifyDataSetChanged();
+                updateEmptyState();
             })
             .setNegativeButton("Cancel", null).show();
     }
@@ -340,28 +360,49 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(i, REQ_ADD);
     }
 
+    // ── Custom developer dialog ───────────────────────────────────────────────
+
     private void showDeveloperDialog() {
-        new AlertDialog.Builder(this)
-            .setTitle("👨\u200d💻 Developer")
-            .setMessage("This JioMart Stock Tracker is made by\n\n"
-                + "Dr. Dev  ||  Dr. Hamza\n\n"
-                + "Contact: @drdevhacks\n\nFor custom apps, automation & bots.")
-            .setPositiveButton("Open Telegram", (d, w) ->
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://t.me/drdevhacks"))))
-            .setNegativeButton("Close", null).show();
+        Dialog dialog = new Dialog(this, R.style.DeveloperDialogTheme);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_developer);
+        if (dialog.getWindow() != null)
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+
+        // Telegram link text → open in browser
+        dialog.findViewById(R.id.tvTelegramLink).setOnClickListener(v -> {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/drdevhacks")));
+            dialog.dismiss();
+        });
+
+        // Open Telegram button
+        ((MaterialButton) dialog.findViewById(R.id.btnOpenTelegram)).setOnClickListener(v -> {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/drdevhacks")));
+            dialog.dismiss();
+        });
+
+        dialog.findViewById(R.id.btnCloseDialog).setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
     }
 
+    // ── Expired dialog ────────────────────────────────────────────────────────
+
     private void showExpiredDialog() {
-        new AlertDialog.Builder(this)
-            .setTitle("⏰ Trial Expired")
-            .setMessage("Your 7-day trial has expired.\n\nContact the developer to purchase.\n\n@drdevhacks")
-            .setCancelable(false)
-            .setPositiveButton("Contact Developer", (d, w) -> {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://t.me/drdevhacks")));
-                finish();
-            })
-            .setNegativeButton("Close App", (d, w) -> finish()).show();
+        Dialog dialog = new Dialog(this, R.style.DeveloperDialogTheme);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(false);
+        dialog.setContentView(R.layout.dialog_trial_expired);
+        if (dialog.getWindow() != null)
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+
+        dialog.findViewById(R.id.btnContactDev).setOnClickListener(v -> {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/drdevhacks")));
+            finish();
+        });
+        dialog.findViewById(R.id.btnCloseApp).setOnClickListener(v -> {
+            dialog.dismiss();
+            finish();
+        });
+        dialog.show();
     }
 }
