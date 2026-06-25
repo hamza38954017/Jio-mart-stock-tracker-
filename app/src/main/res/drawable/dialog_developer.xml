@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="24dp"
+    app:cardCornerRadius="24dp"
+    app:cardBackgroundColor="#0E1829"
+    app:cardElevation="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- ── Gradient header ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="140dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_dev_dialog_header"
+            android:paddingTop="24dp"
+            android:paddingBottom="16dp">
+
+            <!-- Avatar ring -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                app:cardCornerRadius="36dp"
+                app:cardBackgroundColor="#1A00E5FF"
+                app:cardElevation="8dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="&lt;/&gt;"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="#00E5FF"
+                    android:gravity="center"/>
+            </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Dr. Dev  ·  Dr. Hamza"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:letterSpacing="0.03"/>
+
+        </LinearLayout>
+
+        <!-- ── Content ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <!-- Handle chip -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="16dp">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    app:cardCornerRadius="18dp"
+                    app:cardBackgroundColor="#0D00E5FF"
+                    app:cardElevation="0dp">
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="14dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="✈"
+                            android:textSize="14sp"
+                            android:textColor="#00E5FF"
+                            android:layout_marginEnd="6dp"/>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@drdevhacks"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="#00E5FF"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+            </LinearLayout>
+
+            <!-- Description -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Building custom Android apps, Telegram bots, backend systems, and automation tools."
+                android:textColor="#90A4AE"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#1A2540"
+                android:layout_marginBottom="18dp"/>
+
+            <!-- Telegram link row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_telegram_row"
+                android:paddingHorizontal="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✈"
+                    android:textSize="18sp"
+                    android:textColor="#00B0FF"
+                    android:layout_marginEnd="10dp"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Contact on Telegram"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"/>
+                    <TextView
+                        android:id="@+id/tvTelegramLink"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="t.me/drdevhacks"
+                        android:textColor="#00B0FF"
+                        android:textSize="12sp"
+                        android:clickable="true"
+                        android:focusable="true"/>
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="↗"
+                    android:textSize="16sp"
+                    android:textColor="#00B0FF"/>
+
+            </LinearLayout>
+
+            <!-- Open Telegram button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenTelegram"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="✈  Open Telegram"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#070D1A"
+                android:layout_marginBottom="10dp"
+                app:backgroundTint="#00B0FF"
+                app:cornerRadius="14dp"/>
+
+            <!-- Close button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCloseDialog"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:text="Close"
+                android:textSize="13sp"
+                android:textColor="#90A4AE"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#1A2540"
+                app:cornerRadius="14dp"/>
+
+            <!-- Version footer -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="JioMart Monitor  ·  v1.0  ·  @drdevhacks"
+                android:textColor="#37474F"
+                android:textSize="10sp"
+                android:gravity="center"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
