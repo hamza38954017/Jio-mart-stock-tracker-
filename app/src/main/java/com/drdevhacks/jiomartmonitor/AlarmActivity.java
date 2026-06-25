@@ -13,20 +13,22 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import com.google.android.material.button.MaterialButton;
 
 public class AlarmActivity extends AppCompatActivity {
 
-    public static final String ACTION_DISMISS = "com.drdevhacks.jiomartmonitor.DISMISS_ALARM";
-    private static final long  AUTO_DISMISS_MS = 5 * 60 * 1000L; // 5 minutes
+    public static final String ACTION_DISMISS   = "com.drdevhacks.jiomartmonitor.DISMISS_ALARM";
+    private static final long  AUTO_DISMISS_MS  = 5 * 60 * 1000L; // 5 minutes
 
-    private MediaPlayer   mediaPlayer;
-    private Vibrator      vibrator;
+    private MediaPlayer    mediaPlayer;
+    private Vibrator       vibrator;
     private CountDownTimer countDown;
-    private TextView      tvCountdown;
+    private TextView       tvCountdown;
 
     private final BroadcastReceiver dismissReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context ctx, Intent intent) {
@@ -51,7 +53,7 @@ public class AlarmActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_alarm);
 
-        // Extract extras
+        // ── Extract extras ────────────────────────────────────────────────────
         String productName  = getIntent().getStringExtra("product_name");
         String productUrl   = getIntent().getStringExtra("product_url");
         String productEmoji = getIntent().getStringExtra("product_emoji");
@@ -60,28 +62,50 @@ public class AlarmActivity extends AppCompatActivity {
         String price        = getIntent().getStringExtra("price");
         String storeIds     = getIntent().getStringExtra("store_ids");
 
-        // Bind views
+        // ── Bind views ────────────────────────────────────────────────────────
         tvCountdown = findViewById(R.id.tvCountdown);
-        ((TextView) findViewById(R.id.tvAlarmEmoji)).setText(productEmoji != null ? productEmoji : "📦");
-        ((TextView) findViewById(R.id.tvAlarmProduct)).setText(productName != null ? productName : "");
-        ((TextView) findViewById(R.id.tvAlarmLocation)).setText("📍  " + (locationName != null ? locationName : ""));
-        ((TextView) findViewById(R.id.tvAlarmQty)).setText("📦  " + quantity + " units available");
-        ((TextView) findViewById(R.id.tvAlarmPrice)).setText("💰  " + (price != null ? price : "N/A"));
-        ((TextView) findViewById(R.id.tvAlarmStores)).setText("🏪  Stores: " + (storeIds != null ? storeIds : ""));
 
-        // Buy Now button
-        Button btnBuy = findViewById(R.id.btnAlarmBuy);
+        ((TextView) findViewById(R.id.tvAlarmEmoji)).setText(
+            productEmoji != null ? productEmoji : "📦");
+        ((TextView) findViewById(R.id.tvAlarmProduct)).setText(
+            productName != null ? productName : "");
+        ((TextView) findViewById(R.id.tvAlarmLocation)).setText(
+            locationName != null ? locationName : "—");
+        ((TextView) findViewById(R.id.tvAlarmStores)).setText(
+            storeIds != null && !storeIds.isEmpty() ? storeIds : "—");
+        ((TextView) findViewById(R.id.tvAlarmQty)).setText(quantity + " units");
+        ((TextView) findViewById(R.id.tvAlarmPrice)).setText(
+            price != null && !price.isEmpty() ? price : "N/A");
+
+        // URL row — show product URL or "not available" note
+        LinearLayout rowUrl = findViewById(R.id.rowProductUrl);
+        TextView tvUrl = findViewById(R.id.tvAlarmUrl);
+        if (productUrl != null && !productUrl.isEmpty()) {
+            tvUrl.setText(productUrl);
+            rowUrl.setOnClickListener(v -> {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(productUrl)));
+            });
+        } else {
+            tvUrl.setText("URL not available");
+            rowUrl.setClickable(false);
+        }
+
+        // ── Buy Now button — opens product URL in default browser ─────────────
+        MaterialButton btnBuy = findViewById(R.id.btnAlarmBuy);
         if (productUrl != null && !productUrl.isEmpty()) {
             btnBuy.setOnClickListener(v -> {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(productUrl)));
                 dismissAlarm();
             });
+        } else {
+            btnBuy.setEnabled(false);
+            btnBuy.setAlpha(0.5f);
         }
 
-        // Dismiss button
+        // ── Dismiss button ────────────────────────────────────────────────────
         findViewById(R.id.btnAlarmDismiss).setOnClickListener(v -> dismissAlarm());
 
-        // Register dismiss receiver
+        // ── Register dismiss receiver ─────────────────────────────────────────
         IntentFilter f = new IntentFilter(ACTION_DISMISS);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(dismissReceiver, f, Context.RECEIVER_NOT_EXPORTED);
@@ -94,19 +118,15 @@ public class AlarmActivity extends AppCompatActivity {
         startCountdown();
     }
 
-    // ── Countdown (auto-dismiss at 5 min) ─────────────────────────────────────
+    // ── Countdown ─────────────────────────────────────────────────────────────
     private void startCountdown() {
         countDown = new CountDownTimer(AUTO_DISMISS_MS, 1000) {
             @Override public void onTick(long remaining) {
-                long sec = remaining / 1000;
-                long m   = sec / 60;
-                long s   = sec % 60;
+                long sec = remaining / 1000, m = sec / 60, s = sec % 60;
                 if (tvCountdown != null)
                     tvCountdown.setText(String.format("Auto-dismiss in  %02d:%02d", m, s));
             }
-            @Override public void onFinish() {
-                dismissAlarm();
-            }
+            @Override public void onFinish() { dismissAlarm(); }
         }.start();
     }
 
@@ -116,16 +136,13 @@ public class AlarmActivity extends AppCompatActivity {
             Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             if (alarmUri == null)
                 alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setDataSource(this, alarmUri);
             mediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
             mediaPlayer.setLooping(true);
             mediaPlayer.prepare();
             mediaPlayer.start();
-        } catch (Exception e) {
-            // Fallback: just vibrate
-        }
+        } catch (Exception ignored) {}
     }
 
     // ── Vibration ─────────────────────────────────────────────────────────────
@@ -143,8 +160,11 @@ public class AlarmActivity extends AppCompatActivity {
     // ── Dismiss ───────────────────────────────────────────────────────────────
     private void dismissAlarm() {
         if (countDown != null)   { countDown.cancel(); countDown = null; }
-        if (mediaPlayer != null) { try { mediaPlayer.stop(); mediaPlayer.release(); } catch (Exception ignored) {} mediaPlayer = null; }
-        if (vibrator != null)    { vibrator.cancel(); vibrator = null; }
+        if (mediaPlayer != null) {
+            try { mediaPlayer.stop(); mediaPlayer.release(); } catch (Exception ignored) {}
+            mediaPlayer = null;
+        }
+        if (vibrator != null) { vibrator.cancel(); vibrator = null; }
         finish();
     }
 
