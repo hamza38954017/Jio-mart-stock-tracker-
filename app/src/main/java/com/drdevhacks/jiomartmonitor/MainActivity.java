@@ -54,18 +54,26 @@ public class MainActivity extends AppCompatActivity {
     private TextView           tvDaysLeft;
     private LinearLayout       emptyState;
     private List<Product>      products;
-    private static final int   REQ_NOTIF          = 100;
-    private static final int   REQ_ADD            = 200;
-    private static final int   REQ_WRITE_SETTINGS = 400;
+
+    // ── Guard flag: true only when all views + adapter are ready ─────────────
+    // Without this, onResume() / updateUI() crash on null refs when onCreate()
+    // exits early (expired trial) or before setContentView() is reached.
+    private boolean isInitialized = false;
+
+    private static final int REQ_NOTIF = 100;
+    private static final int REQ_ADD   = 200;
 
     private boolean batteryDialogShowing = false;
     private boolean notifDialogShowing   = false;
 
     private final Handler  refreshTimeoutHandler = new Handler(Looper.getMainLooper());
-    private final Runnable stopRefreshRunnable   = () -> swipeRefresh.setRefreshing(false);
+    private final Runnable stopRefreshRunnable   = () -> {
+        if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+    };
 
     private final BroadcastReceiver stockReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context ctx, Intent intent) {
+            if (!isInitialized) return;
             String action = intent.getAction();
             if (StockMonitorService.ACTION_UPDATE.equals(action)) {
                 refreshTimeoutHandler.removeCallbacks(stopRefreshRunnable);
@@ -82,13 +90,19 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
 
-        // Request WRITE_SETTINGS early so trial start persists across reinstalls
-        requestWriteSettingsIfNeeded();
-
-        ExpiryManager.init(this);
-        if (ExpiryManager.isExpired(this)) { showExpiredDialog(); return; }
-
+        // ── STEP 1: setContentView ALWAYS first ───────────────────────────────
+        // This MUST come before any early return or dialog so that onResume()
+        // never runs against a null view tree.
         setContentView(R.layout.activity_main);
+
+        // ── STEP 2: bind views ────────────────────────────────────────────────
+        tvLastChecked = findViewById(R.id.tvLastChecked);
+        tvDaysLeft    = findViewById(R.id.tvDaysLeft);
+        swipeRefresh  = findViewById(R.id.swipeRefresh);
+        recyclerView  = findViewById(R.id.recyclerView);
+        emptyState    = findViewById(R.id.emptyState);
+
+        setSupportActionBar(findViewById(R.id.toolbar));
 
         ViewCompat.setOnApplyWindowInsetsListener(
             findViewById(R.id.appBarLayout), (v, insets) -> {
@@ -97,23 +111,28 @@ public class MainActivity extends AppCompatActivity {
                 return insets;
             });
         ViewCompat.setOnApplyWindowInsetsListener(
-            findViewById(R.id.swipeRefresh), (v, insets) -> {
+            swipeRefresh, (v, insets) -> {
                 Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
                 v.setPadding(0, 0, 0, sys.bottom);
                 return insets;
             });
 
-        setSupportActionBar(findViewById(R.id.toolbar));
+        // ── STEP 3: check trial (safe to early-return now; views exist) ───────
+        ExpiryManager.init(this);
+        if (ExpiryManager.isExpired(this)) {
+            showExpiredDialog();
+            return; // safe — setContentView already called; onResume guarded below
+        }
 
-        tvLastChecked = findViewById(R.id.tvLastChecked);
-        tvDaysLeft    = findViewById(R.id.tvDaysLeft);
-        swipeRefresh  = findViewById(R.id.swipeRefresh);
-        recyclerView  = findViewById(R.id.recyclerView);
-        emptyState    = findViewById(R.id.emptyState);
-
+        // ── STEP 4: finish UI setup ───────────────────────────────────────────
         long days = ExpiryManager.getDaysRemaining(this);
         tvDaysLeft.setText(days > 1 ? "Trial: " + days + " days left" : "⚠️ Trial expires today!");
         tvDaysLeft.setVisibility(View.VISIBLE);
+
+        swipeRefresh.setColorSchemeColors(
+            ContextCompat.getColor(this, R.color.colorPrimary),
+            ContextCompat.getColor(this, R.color.colorInStock));
+        swipeRefresh.setOnRefreshListener(this::triggerManualRefresh);
 
         products = ProductStorage.getAll(this);
         adapter  = new ProductAdapter(this, products);
@@ -125,41 +144,24 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
         recyclerView.setHasFixedSize(false);
 
-        swipeRefresh.setColorSchemeColors(
-            ContextCompat.getColor(this, R.color.colorPrimary),
-            ContextCompat.getColor(this, R.color.colorInStock));
-        swipeRefresh.setOnRefreshListener(this::triggerManualRefresh);
-
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(v ->
             startActivityForResult(new Intent(this, AddProductActivity.class), REQ_ADD));
+
+        // ── STEP 5: mark ready, then start ───────────────────────────────────
+        isInitialized = true;
 
         startMonitor();
         updateUI();
     }
 
-    // ── WRITE_SETTINGS permission (anti-reinstall trial lock) ─────────────────
-
-    private void requestWriteSettingsIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && !Settings.System.canWrite(this)) {
-            new AlertDialog.Builder(this)
-                .setTitle("🔐 One-Time Setup")
-                .setMessage("To prevent trial abuse, the app needs to save a small amount of data in system settings.\n\nThis is a one-time step — it only records your trial start date so it survives reinstallation. No system settings are changed.\n\nTap Allow → toggle ON, then go back.")
-                .setCancelable(false)
-                .setPositiveButton("Allow", (d, w) -> {
-                    Intent i = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
-                    i.setData(Uri.parse("package:" + getPackageName()));
-                    startActivityForResult(i, REQ_WRITE_SETTINGS);
-                })
-                .setNegativeButton("Skip", null)
-                .show();
-        }
-    }
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (!isInitialized) return; // guard: views not ready (expired / mid-init)
+
         checkAndRequestNotifPermission();
         checkAndRequestBatteryOptimization();
 
@@ -183,14 +185,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (!isInitialized) return; // guard
         if (req == REQ_ADD && res == RESULT_OK) {
             products.clear();
             products.addAll(ProductStorage.getAll(this));
             adapter.notifyDataSetChanged();
             updateEmptyState();
             Toast.makeText(this, "Product saved!", Toast.LENGTH_SHORT).show();
-        } else if (req == REQ_WRITE_SETTINGS) {
-            ExpiryManager.init(this);  // now that permission may be granted, re-init
         }
     }
 
@@ -245,7 +246,10 @@ public class MainActivity extends AppCompatActivity {
                         .setTitle("🔔 Notification Permission Required")
                         .setMessage("Notifications are required to alert you when a product comes back in stock.\n\nWithout this, you will miss restock alerts!")
                         .setCancelable(false)
-                        .setPositiveButton("Allow", (d, w) -> { notifDialogShowing = false; requestNotifPermission(); })
+                        .setPositiveButton("Allow", (d, w) -> {
+                            notifDialogShowing = false;
+                            requestNotifPermission();
+                        })
                         .setNegativeButton("Ask Later", (d, w) -> notifDialogShowing = false)
                         .show();
                 } else {
@@ -299,6 +303,7 @@ public class MainActivity extends AppCompatActivity {
     // ── UI helpers ────────────────────────────────────────────────────────────
 
     private void updateUI() {
+        if (!isInitialized) return; // guard
         products.clear();
         products.addAll(ProductStorage.getAll(this));
         adapter.notifyDataSetChanged();
@@ -314,13 +319,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateEmptyState() {
-        if (emptyState == null) return;
+        if (emptyState == null || recyclerView == null) return;
         boolean isEmpty = products.isEmpty();
         emptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
     }
 
     private void triggerManualRefresh() {
+        if (!isInitialized) return;
         swipeRefresh.setRefreshing(true);
         refreshTimeoutHandler.removeCallbacks(stopRefreshRunnable);
         refreshTimeoutHandler.postDelayed(stopRefreshRunnable, 30_000);
@@ -369,18 +375,14 @@ public class MainActivity extends AppCompatActivity {
         if (dialog.getWindow() != null)
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
 
-        // Telegram link text → open in browser
         dialog.findViewById(R.id.tvTelegramLink).setOnClickListener(v -> {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/drdevhacks")));
             dialog.dismiss();
         });
-
-        // Open Telegram button
         ((MaterialButton) dialog.findViewById(R.id.btnOpenTelegram)).setOnClickListener(v -> {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/drdevhacks")));
             dialog.dismiss();
         });
-
         dialog.findViewById(R.id.btnCloseDialog).setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }
